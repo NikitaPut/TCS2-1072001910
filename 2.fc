@@ -1,0 +1,47 @@
+{-
+ ЗАДАЧА 2 - Объединить хэш-карты (словари)
+ Напишите метод, который объединяет две хэш-карты в одну. Когда ключи хэш-карт
+ следует использовать значения из первой хэш-карты, при этом отбрасывать
+ пары ключ / значение должны храниться в отдельной хэш-карте.
+ Метод должен возвращать две хэш-карты (merged_dict, discared_dict). Если таковые имеются
+ если результирующие хэш-карты пусты, они должны быть представлены значением `null`.
+ Длина ключа Hashmap составляет 256 бит. Каждая хэш-карта содержит не более 256 элементов.
+-}
+
+() recv_internal() {
+}
+
+;; testable
+(cell, cell) merge_hashmaps(cell dict1, cell dict2) method_id {
+
+    int key_length = 256;
+
+    (int key0, slice value1, int look1) = dict1.udict_get_min?(key_length);
+    (int key1, slice value2, int look2) = dict2.udict_get_min?(key_length);
+
+    if ((look1 + look2 == 0)) {
+        return (null(), null());
+    }
+
+        if (~ look1) {
+            return (null(), dict2);
+        }
+
+            if (~ look2) {
+                return (dict1, null());
+            }
+
+    do {
+        int add_f = dict1~udict_add?(key_length, key1, value2);
+
+        if (add_f) {
+            _ = dict2~udict_delete?(key_length, key1);
+            }
+
+        (key1, value2, int f) = dict2.udict_get_next?(key_length, key1);
+        
+    } until((~ f));
+
+    return (dict1, dict2); 
+}
+ 

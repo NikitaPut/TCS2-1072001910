@@ -1,0 +1,91 @@
+{-
+ ЗАДАЧА 4 - (Де) сериализовать в ячейку
+ Напишите методы
+ а) для сериализации кортежа произвольных значений разных типов в ячейку
+ б) для десериализации ячейки, созданной описанным выше методом, в исходный кортеж
+
+ метод `serialize` получает в качестве входного кортежа произвольное количество элементов от 0
+ до 128 (разрешены как 0, так и 128 элементов) и выводит ячейку. Элементы
+ кортеж может быть `null`, `int`, `cell`, `slice`, `tuple` (с теми же ограничениями
+ как исходный кортеж). Гарантируется, что максимальный уровень вложенности кортежей
+ меньше 4 и общее количество элементов меньше 1024.
+ метод "десериализации" получает ячейку, созданную методом "сериализации", и должен
+ возвращает исходный кортеж.
+
+ Обратите внимание, для иллюстративных целей `serialize_t3' и `deserialize_t3` функции
+ которые сериализуют и десериализуют кортеж ровно из 3 элементов
+ (поддерживаются только null, int, cell и slice) в / из ячейки были добавлены.
+ Участники могут не использовать логику оттуда и придумать свою собственную
+ реализации.
+
+ Тесты будут проверять только то, что test_tuple == десериализовать(сериализовать(test_tuple)).
+ Промежуточное представление может быть произвольным.
+-}
+
+() recv_internal() {
+}
+
+;; testable
+(cell) serialize(tuple values) method_id {
+
+}
+
+;; testable
+(tuple) deserialize(cell serialized) method_id {
+  
+}
+
+;; **** Иллюстративный материал ****
+builder serialize_element(builder b, var x) {
+  if(is_null(x)) {
+    b~store_uint(0,3);
+  }
+      if(is_int(x)) {
+        int i_x = force_cast_to_int(x);
+        b = b.store_uint(1,3).store_int(i_x, 257);
+      }
+      if(is_cell(x)) {
+        cell c_x = force_cast_to_cell(x);
+        b = b.store_uint(2,3).store_ref(c_x);
+      }
+  if(is_slice(x)) {
+    slice s_x = force_cast_to_slice(x);
+    b = b.store_uint(3,3).store_ref(begin_cell().store_slice(s_x).end_cell());
+  }
+  return b;
+}
+
+(slice, tuple) deserialize_element_to_tuple(slice s, tuple t) {
+  int element_type = s~load_uint(3);
+  if(element_type == 0) {
+    t~tpush(null());
+  }
+      if(element_type == 1) {
+        t~tpush(s~load_int(257));
+      }
+      if(element_type == 2) {
+        t~tpush(s~load_ref());
+      }
+  if(element_type == 3) {
+    t~tpush(s~load_ref().begin_parse());
+  }
+  return (s,t);
+}
+
+cell serialize_t3(tuple three_elements) method_id {
+  throw_unless(777, three_elements.tuple_length() == 3);
+  builder srl = begin_cell();
+  srl = serialize_element(srl, three_elements.first());
+  srl = serialize_element(srl, three_elements.second());
+  srl = serialize_element(srl, three_elements.third());
+  return srl.end_cell();
+}
+
+tuple deserialize_t3(cell sc) method_id {
+  slice s = sc.begin_parse();
+  tuple t = empty_tuple();
+  repeat (3) {
+    (s,t) = deserialize_element_to_tuple(s,t);
+  }
+  return t;
+}

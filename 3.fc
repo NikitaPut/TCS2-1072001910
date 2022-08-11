@@ -1,0 +1,113 @@
+{-
+ ЗАДАЧА 3 - Проверка сообщения.
+ Напишите метод, который проверяет, содержит ли ячейка действительное сообщение
+ в соответствии с https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L155
+ Обратите внимание, тесты будут охватывать только действительные и недопустимые объекты MessageAny,
+ действительные сообщения, которые не являются одновременно сообщениями), не будут представлены
+ Если сообщение недействительно по какой-либо причине - метод должен вернуть (0, null), в противном случае
+ он должен возвращать (-1, [slice src, slice dest, int amount] ), где src, dest и
+ сумма представляет источник сообщения, адресата сообщения и прикрепленного
+ количество тонн. Если какое-либо из этих значений не представлено (или представлено как
+ фрагмент addr_none) в ячейке сообщения - они должны быть заменены на null.
+ Гарантируется, что для всех тестов любой тип данных HashmapE в структуре сообщения
+ это пустые хэш-карты (имеет конструктор hme_empty).
+ Документацию по схемам TL-B можно найти в https://ton.org/docs/#/overviews/TL-B
+-}
+
+() recv_internal() {
+}
+
+;; testable
+(int, tuple) validate_message(cell letter) method_id {
+
+    slice d_msg = letter.begin_parse();
+
+    if (slice_data_empty?(d_msg)) {
+        return (0, null()); 
+    }
+
+    slice src_addr = null();
+    slice dest_addr = null();
+    int amount = 0;
+
+    int addr_type = d_msg~load_uint(1);                 ;; внутренний или внешний
+
+    if (addr_type == 0) {                                   ;; int_msg_info$0
+        int flags = d_msg~load_uint(3);                         ;; ihr_disable, bounce, bounced
+        src_addr = d_msg~load_msg_addr();                   ;; src-адрес
+        dest_addr = d_msg~load_msg_addr();              ;; dest-адрес
+        
+        if (equal_slice(src_addr, dest_addr)) {
+            return (0, null());
+        }
+
+        if (first(parse_addr(src_addr)) == 0) {           
+            src_addr = null(); 
+        }
+        if (first(parse_addr(dest_addr)) == 0) {             
+            dest_addr = null(); 
+        }
+
+        amount = d_msg~load_grams();                    ;; количество TON
+        _ = d_msg~load_uint(1);                     ;; need test
+        
+
+        int ihr_fee = d_msg~load_grams();               ;; ihr_fee  
+        int fwf_fee = d_msg~load_grams();                   ;; fwd_fee 
+
+        int clocal = d_msg~load_uint(64);                       ;; created_lt
+        if (clocal > cur_lt()) {
+            return (0, null());
+        }
+
+        int cunix = d_msg~load_uint(32);                ;; created_ut
+        if (cunix > now()) {
+            return (0, null());
+        }
+    } 
+    
+    if (addr_type == 1) {
+
+        int ext_addr_type = d_msg~load_uint(1);         ;; входящий или исходящий
+
+        src_addr = d_msg~load_msg_addr();                   ;; src адрес
+        dest_addr = d_msg~load_msg_addr();        ;; dest адрес
+        if equal_slice(src_addr, dest_addr) {
+            return (0, null());
+        }
+        if (first(parse_addr(src_addr)) == 0) {          
+            src_addr = null(); 
+        }
+        if (first(parse_addr(dest_addr)) == 0) {              
+            dest_addr = null(); 
+        }
+
+        if (ext_addr_type == 0){
+            amount = d_msg~load_grams();            ;; количество TON
+        } 
+        if (ext_addr_type == 1) {
+            int clocal = d_msg~load_uint(64);               ;; created_lt
+            if (clocal > cur_lt()) {
+                return (0, null());
+            }
+            int cunix = d_msg~load_uint(32);            ;; created_ut
+            if (cunix > now()) {
+                return (0, null());
+            }
+        }
+    }
+
+    int init_and_inplace = d_msg~load_uint(2);
+
+    (int n_last_bits, int n_refs) = d_msg.slice_bits_refs();
+
+    if (init_and_inplace > n_refs) {
+        return (0, null());
+    }
+
+    if ((init_and_inplace == 0) & (n_last_bits == 0)) {
+        return (0, null());
+    }
+
+    return (-1, unsafe_tuple([src_addr, dest_addr, amount]));
+}
